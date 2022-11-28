@@ -1,0 +1,66 @@
+---
+title: "Untitled"
+author: "Leo Xie"
+date: "2021/3/8"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+#compute ehat in linear case by the formula y-betahat*X (here reverse the order due to the dimension)
+ehatlin <- Ylin-Xlin%*%betahatlin
+#RSS can be computed using e^T e
+RSSlin <- t(ehatlin)%*%ehatlin
+sigma2hatlin <- RSSlin/(length(Ylin)-3) #sigma^2 = RSS/n-p, n=length(Y), p=3 (as three betas)
+
+```
+\[
+c^T\hat\beta\pm t_{n-p,\alpha/2}\hat\sigma(c^T(X^TX)c)^{1/2}
+\]
+```{r}
+#create a vector to calculate 95% c.i. for beta1 
+vec <- c(1,0,0)
+#find the critical region in t distribution using qt function
+crittval <- qt(0.975, df=length(Ylin)-3, lower.tail=TRUE)
+#get the term on the right hand side of the formula 
+uval <- crittval*sqrt(sigma2hatlin)*sqrt(t(vec)%*%inverseXTX%*%vec)
+#get the critical value c and the interval between the two value is the confidence interval
+cbeta1lin <- vec%*%betahatlin+c(-1,1)*uval
+cbeta1lin
+
+
+#repeat the same for beta2
+vec <- c(0,1,0)
+uval <- crittval*sqrt(sigma2hatlin)*sqrt(t(vec)%*%inverseXTX%*%vec)
+cbeta2lin <- vec%*%betahatlin+c(-1,1)*uval
+cbeta2lin
+
+#and beta3
+vec <- c(0,0,1)
+uval <- crittval*sqrt(sigma2hatlin)*sqrt(t(vec)%*%inverseXTX%*%vec)
+cbeta3lin <- vec%*%betahatlin+c(-1,1)*uval
+cbeta3lin
+```
+
+
+```{r}
+#ftest
+
+#construct a small model and compute its RSS. Here the model is only with its intercept term
+Xsmaller<-Xlin[,1] #only intercept
+inverseXTXs<-solve(t(Xsmaller)%*%Xsmaller)
+betahatsmaller<-inverseXTXs%*%t(Xsmaller)%*%Ylin
+ehatsmaller <- Ylin-Xsmaller%*%betahatsmaller
+RSS0 <- t(ehatsmaller)%*%ehatsmaller
+#compute the F statistics
+Flin<-((RSS0-RSSlin)/RSSlin)*((length(Ylin)-3)/3-1)
+Flin
+
+#get the critical region for f distribution (here it is the value for 0.01)
+fcrit <- qf(0.01,df1=3-1,df2=length(Ylin)-3,lower.tail = FALSE)
+fcrit
+```

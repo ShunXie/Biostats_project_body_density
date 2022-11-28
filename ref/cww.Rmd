@@ -1,0 +1,254 @@
+---
+title: "Statistical Modelling CW"
+author: "Leo Xie"
+date: "2021/3/1"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(plot3D)
+```
+
+# Appendix 1
+
+```{r,fig.width=4,fig.height=4} 
+load("01496886.RData")
+summary(read)
+
+#the data is all continuous so histogram
+ggplot(read, aes(x=count)) + 
+ geom_histogram(aes(y=..density..), colour="black", fill="white")+
+ geom_density(alpha=.2)+
+ labs(title="Distributions of count")
+
+ggplot(read, aes(x=attention)) + 
+ geom_histogram(aes(y=..density..), colour="black", fill="white",binwidth = 1)+
+ geom_density(alpha=.2)+
+ labs(title="Distributions of attention")
+
+ggplot(read, aes(x=fluency)) + 
+ geom_histogram(aes(y=..density..), colour="black", fill="white",binwidth = 1)+
+ geom_density(alpha=.2)+
+ labs(title="Distributions of verbal fluency")
+
+
+barplot(table(read$yr),main="Year group distribution",
+   xlab="Year group")
+
+```
+
+# Appendix 2
+
+```{r,fig.width=4, fig.height=4}
+Ylin <- read$count
+#Note the first columns consists a column of one representing the intercept term
+Xlin <- cbind(1,read$attention,read$fluency)
+#we find the (X^TX)^{-1} term
+inverseXTX <- solve(t(Xlin)%*%Xlin)
+#calculate beta using the formula 
+betahatlin <- inverseXTX%*%t(Xlin)%*%Ylin
+print(betahatlin)
+
+#plot using 3d scatter plot
+x<-read$attention
+y<-read$fluency
+z<-read$count
+grid.lines<-40
+rangex <- seq(14, 26, length.out = grid.lines)
+rangey <- seq(14, 26, length.out = grid.lines)
+xandy <- expand.grid( x = rangex, y = rangey)
+rangez <- matrix(betahatlin[1]+betahatlin[2]*rangex+betahatlin[3]*rangey,
+                 nrow = grid.lines, ncol = grid.lines)
+fitpoints <- betahatlin[1]+betahatlin[2]*read$attention+betahatlin[3]*read$fluency
+scatter3D(x, y, z, pch = 19, cex = 1,colvar = NULL, col="red", 
+          theta = 20, phi = 10, bty="b",
+          xlab = "attention", ylab = "fluency", zlab = "Counts",  
+          surf = list(x = rangex, y = rangey, z = rangez,  
+                      facets = TRUE, fit = fitpoints, col=ramp.col (col = c("blue","green"), n = 300, alpha=0.9), border="black"), main = "Count linear approximation")
+```
+
+Using inbuilt lm model to get plotting
+```{r,fig.width=4, fig.height=4}
+fitlin = lm(read$count ~ read$attention+ read$fluency)
+plot(fitlin)
+```
+
+
+# Appendix 3
+
+Note deviance for poisson is:
+\[
+2\sum^n_{i=1}[y_ilog(\frac{y_i}{\mu})-(y_i-\hat\mu)]
+\]
+by problem sheet 3.
+
+```{r,fig.width=4, fig.height=4}
+Xpoi <- Xlin
+Ypoi <- Ylin
+n<-length(Ypoi)
+#arbitrarily choose 
+betapoi <- c(0.5,0.5,0)
+#inverse log function (canonical link)
+invlog <- function(u){
+  exp(u)
+}
+#deviance function for poisson 
+D<-function(mu){
+  a <- Ypoi*log(Ypoi/mu)-(Ypoi-mu)
+  a[Ylin==0] <- 0 #deatling with y=0 case
+  2*sum(a)
+}
+
+old_D <- D(invlog(Xpoi%*%betapoi))
+tf<-0 #initialize a zero value, stands for false. If it is smaller than tolerance, the value will be updated as 1 in the following loop:
+n<-0 #initilize a n for recording number of loop
+
+while(tf==0&n<=25){#maximum number of loop is 25
+  etaval <- Xpoi%*%betapoi #using the estimated linear predictor to update the eta value, which is the linear part in the poisson regression
+  mu <- invlog(etaval)#back to exponential scale
+  z <- etaval + (Ylin-mu)*1/mu #eta + (y-mu)*d(eta)/dmu
+  w <- mu#update the weight as calculated in main discussion of poisson model
+  fitlin <- lm(z~read$attention+read$fluency,weights = w)#regress y on the components of data with weight w
+  betapoi <- as.vector(fitlin$coeff) #update beta value
+  new_D <- D(invlog(Xpoi%*%betapoi)) #update the new deviance
+  control <- abs(new_D-old_D)/(abs(new_D)+0.1) #calculate the difference in deviance as stopping criterion. Plus 0.1 so that it wont be divided by zero
+  if(control<1e-8) #if reaches stopping criterion return 1 so it will break the loop
+    tx <- 1
+  old_D <- new_D #update the old deviance 
+  n<-n+1 #update number of iteration
+}
+print(betapoi) #get betapoi value
+
+fitpoisson <- glm(Ylin~read$attention+read$fluency,family = poisson(link="log"))
+plot(fitpoisson) #using glm to plot
+
+```
+
+# Appendix 4
+
+```{r}
+#using summary to check the t value and t test. 
+summary(fitlin)
+summary(fitpoisson)
+```
+
+
+# Appendix 5
+
+```{r,fig.width=4, fig.height=4}
+#discard model that has zero as count value
+zeroposition=seq(1,186,1)[Ylin==0]
+readnozero<-read[-c(zeroposition),]
+
+#fit linear model
+fit1<-lm(readnozero$count~readnozero$attention+readnozero$fluency+readnozero$yr)
+print(AIC(fit1))
+
+#fit poisson model with log link
+fit2 <- glm(readnozero$count~readnozero$attention+readnozero$fluency+readnozero$yr,family = poisson(link="log"))
+print(AIC(fit2))
+
+#fit gaussian model with log link
+fit3<-glm(readnozero$count~readnozero$attention+readnozero$fluency+readnozero$yr,family = gaussian(link='log'))
+print(AIC(fit3))
+
+#fit adapted linear model with log of count value
+fit4<-lm(log(readnozero$count)~readnozero$attention+readnozero$fluency+readnozero$yr,data=readnozero)
+print(AIC(fit4))
+
+```
+
+# Appendix 6
+
+```{r,fig.width=4, fig.height=4}
+#plot the best fitted model
+plot(fit4)
+```
+
+# Appendix 7
+
+```{r}
+#take log of count value as y value 
+Ylinlog <- log(readnozero$count)
+#Note the first columns consists a column of one representing the intercept term
+Xlinlog <- cbind(1,readnozero$attention,readnozero$fluency,readnozero$yr)
+#we find the (X^TX)^{-1} term
+inverseXTXlog <- solve(t(Xlinlog)%*%Xlinlog)
+#calculate beta using the formula 
+betahatlinlog <- inverseXTXlog%*%t(Xlinlog)%*%Ylinlog
+print(betahatlinlog)
+```
+
+
+
+# Appendix 8
+
+```{r}
+
+#compute ehat in linear case by the formula y-betahat*X (here reverse the order due to the dimension)
+ehatlinlog <- Ylinlog-Xlinlog%*%betahatlinlog
+#RSS can be computed using e^T e
+RSSlinlog <- t(ehatlinlog)%*%ehatlinlog
+sigma2hatlinlog <- RSSlinlog/(length(Ylinlog)-4) #sigma^2 = RSS/n-p, n=length(Y), p=4 (as three betas)
+
+
+#ftest
+
+#construct a small model and compute its RSS. Here the model is only with its intercept term
+Xsmaller<-Xlinlog[,1] #only intercept
+inverseXTXs<-solve(t(Xsmaller)%*%Xsmaller)
+betahatsmaller<-inverseXTXs%*%t(Xsmaller)%*%Ylinlog
+ehatsmaller <- Ylinlog-Xsmaller%*%betahatsmaller
+RSS0 <- t(ehatsmaller)%*%ehatsmaller
+#compute the F statistics
+Flinlog<-((RSS0-RSSlinlog)/RSSlinlog)*((length(Ylinlog)-4)/4-1)
+Flinlog
+
+#get the critical region for f distribution (here it is the value for 0.01)
+fcrit <- qf(0.01,df1=4-1,df2=length(Ylinlog)-4,lower.tail = FALSE)
+fcrit
+```
+
+# Appendix 9
+
+\[
+c^T\hat\beta\pm t_{n-p,\alpha/2}\hat\sigma(c^T(X^TX)c)^{1/2}
+\]
+
+```{r}
+
+#create a vector to calculate 95% c.i. for beta1 
+vec <- c(1,0,0,0)
+#find the critical region in t distribution using qt function
+crittval <- qt(0.975, df=length(Ylinlog)-4, lower.tail=TRUE)
+#get the term on the right hand side of the formula 
+uval <- crittval*sqrt(sigma2hatlinlog)*sqrt(t(vec)%*%inverseXTXlog%*%vec)
+#get the critical value c and the interval between the two value is the confidence interval
+cbeta1linlog <- vec%*%betahatlinlog+c(-1,1)*uval
+cbeta1linlog
+
+
+#repeat the same for beta2
+vec <- c(0,1,0,0)
+uval <- crittval*sqrt(sigma2hatlinlog)*sqrt(t(vec)%*%inverseXTXlog%*%vec)
+cbeta2linlog <- vec%*%betahatlinlog+c(-1,1)*uval
+cbeta2linlog
+
+#and beta3
+vec <- c(0,0,1,0)
+uval <- crittval*sqrt(sigma2hatlinlog)*sqrt(t(vec)%*%inverseXTXlog%*%vec)
+cbeta3linlog <- vec%*%betahatlinlog+c(-1,1)*uval
+cbeta3linlog
+
+#and beta4
+vec <- c(0,0,0,1)
+uval <- crittval*sqrt(sigma2hatlinlog)*sqrt(t(vec)%*%inverseXTXlog%*%vec)
+cbeta3linlog <- vec%*%betahatlinlog+c(-1,1)*uval
+cbeta3linlog
+```
+
+
+
