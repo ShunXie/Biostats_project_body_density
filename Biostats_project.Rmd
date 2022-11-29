@@ -20,6 +20,7 @@ library(ggplot2)
 library(tidyverse)
 library(dplyr)
 library(MASS)
+library(car)
 library(caret)
 ```
 
@@ -82,7 +83,7 @@ for (i in 5:length(colnames)){
 ```
 
 
-### Appendix 3: Model Selection
+### Appendix 3: Variable Selection VIF
 Using Backwards only
 
 ```{r}
@@ -94,9 +95,24 @@ bodyfat_temp =
   
 # Fit the full model 
 Full_model <- lm(bodyfat_brozek ~., data = bodyfat_temp)
-# begin stepwise procedure
-Stepwise_model <- MASS::stepAIC(Full_model, direction = "backward", trace = FALSE)
-summary(Stepwise_model)
+
+vif(Full_model)
+
+bodyfat_noweight = 
+  bodyfat_temp %>% 
+  dplyr::select(-"weight")
+
+Weight_removed_model <- lm(bodyfat_brozek ~., data = bodyfat_noweight)
+
+vif(Weight_removed_model)
+
+bodyfat_noabdweight=
+  bodyfat_temp %>% 
+  dplyr::select(-"weight",-"abdomen")
+
+abd_weight_removed <- lm(bodyfat_brozek ~., data = bodyfat_noabdweight)
+vif(abd_weight_removed)
+
 ```
 
 ### Appendix 3: Model Selection using backward with cv
