@@ -1,0 +1,121 @@
+---
+title: "FinalProject"
+author: "Group 30"
+date: "2022-11-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r setup, include=FALSE}
+library(ggplot2)
+#library(plot3D)
+library(tidyverse)
+library(dplyr)
+library(MASS)
+library(caret)
+```
+
+### Appendix 1: Distribution of Data
+
+```{r} 
+Body_df = readxl::read_excel("data/body_density_data.xlsx")
+summary(Body_df)
+
+
+#the data is all continuous so histogram
+
+ggplot(Body_df, aes(x=bodyfat_brozek)) + 
+ geom_histogram(aes(y=..density..), colour="black", fill="white",binwidth = 1)+
+ geom_density(alpha=.2)+
+ labs(title="Distributions of body fat measured in Brozek method")
+
+
+
+#define column names
+colnames = colnames(Body_df)
+
+# Predictor:
+for (i in 5:length(colnames)){
+  plot = 
+ggplot(Body_df, aes_string(x=colnames[i])) + 
+ geom_histogram(aes(y=..density..), colour="black", fill="white",binwidth = 1)+
+ geom_density(alpha=.2)+
+ labs(title=sprintf("Distributions of %s", colnames[i]) )
+  
+  print(plot)
+}
+
+
+```
+
+
+### Appendix 2: Scatter Plot
+
+
+```{r,message = FALSE, warning = FALSE}
+
+
+
+for (i in 5:length(colnames)){
+  plot = 
+  Body_df %>% 
+    ggplot(aes_string(x = colnames[i], y = "bodyfat_brozek"))+geom_point()+geom_smooth(method = 'lm', se = TRUE, color = 'red')+
+    labs(title = sprintf("Scatter plot for body fat against %s", colnames[i]) )+
+    ylab("Body Fat (Brozek)")
+  
+  print(plot)
+}
+
+
+
+
+
+```
+
+
+### Appendix 3: Model Selection
+Using Backwards only
+
+```{r}
+
+bodyfat_temp = 
+  Body_df %>% 
+  dplyr::select(-id,-bodyfat_siri,-body_density)
+  
+  
+# Fit the full model 
+Full_model <- lm(bodyfat_brozek ~., data = bodyfat_temp)
+# begin stepwise procedure
+Stepwise_model <- MASS::stepAIC(Full_model, direction = "backward", trace = FALSE)
+summary(Stepwise_model)
+```
+
+### Appendix 3: Model Selection using backward with cv
+
+
+```{r}
+
+# Set seed for reproducibility
+set.seed(123)
+# Set up repeated k-fold cross-validation
+train.control <- trainControl(method = "cv", number = 10)
+# Train the model
+step.model <- train(bodyfat_brozek ~., data = bodyfat_temp,
+                    method = "leapBackward", 
+                    tuneGrid = data.frame(nvmax = 1:5),
+                    trControl = train.control
+                    )
+step.model$results
+summary(step.model$finalModel)
+```
+
+```{r}
+
+```
+
+
