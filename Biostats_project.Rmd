@@ -2,16 +2,19 @@
 title: "FinalProject"
 author: "Group 30"
 date: "2022-11-28"
-output: html_document
+output: github_document
 ---
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+options(knitr.duplicate.label = "allow")
+
 ```
 
 ## R Markdown
 
-```{r setup, include=FALSE}
+```{r, include=FALSE}
 library(ggplot2)
 #library(plot3D)
 library(tidyverse)
@@ -19,6 +22,7 @@ library(dplyr)
 library(MASS)
 library(caret)
 ```
+
 
 ### Appendix 1: Distribution of Data
 
@@ -115,7 +119,112 @@ summary(step.model$finalModel)
 ```
 
 ```{r}
+Selected_lm_model = lm(bodyfat_brozek~weight+abdomen+forearm+wrist, data = bodyfat_temp)
+
+plot(Selected_lm_model)
+summary(Selected_lm_model)
+```
+
+
+### Appendix 4 Log transformation
+```{r}
+bodyfat_nonzero = 
+  bodyfat_temp %>% 
+  filter(bodyfat_brozek!=0) 
+
+bodyfat_log = 
+  bodyfat_nonzero %>% 
+  mutate(log_bodyfat_brozek=log(bodyfat_brozek))
+  
+  
+boxcox_lm_model = lm(log_bodyfat_brozek~weight+abdomen+forearm+wrist, data = bodyfat_log)
+
+plot(boxcox_lm_model)
+summary(boxcox_lm_model)
+```
+
+
+### Appendix 5 Box Cox
+
+#### All
+
+```{r}
+
+mylm_all = lm(bodyfat_brozek~., data = bodyfat_nonzero)
+bc_mod_all = boxcox(mylm_all)
+lambda <- bc_mod_all$x[which.max(bc_mod_all$y)]
+
+new_model_all <- lm(((bodyfat_brozek^lambda-1)/lambda) ~ ., data = bodyfat_nonzero)
+
+stepsearch_coxall=step(new_model_all)
+
+step_cox = lm(formula = ((bodyfat_brozek^lambda - 1)/lambda) ~ age + weight + 
+    neck + abdomen + hip + thigh + forearm + wrist, data = bodyfat_nonzero)
+
+plot(step_cox)
+summary(step_cox)
+AIC(step_cox)
+```
+
+#### Partial
+
+```{r}
+mylm = lm(bodyfat_brozek~weight+abdomen+forearm+wrist, data = bodyfat_nonzero)
+bc_mod = boxcox(mylm)
+lambda <- bc_mod$x[which.max(bc_mod$y)]
+
+new_model <- lm(((bodyfat_brozek^lambda-1)/lambda) ~ weight+abdomen+forearm+wrist, data = bodyfat_nonzero)
+
+plot(new_model)
+summary(new_model)
+AIC(new_model)
+```
+
+
+### Appendix 6 Pairwise
+
+```{r}
+lm0 = lm(bodyfat_brozek~weight+abdomen+forearm+wrist, data = bodyfat_temp)
+
+stepsearch = step(lm0,~.^2)
 
 ```
 
+```{r}
+lm_pairwise = lm(bodyfat_brozek~weight+abdomen+forearm+wrist+weight:abdomen, data = bodyfat_temp)
+
+plot(lm_pairwise)
+summary(lm_pairwise)
+```
+
+### Appendix 7 Square term
+
+```{r}
+square_lm = lm(bodyfat_brozek ~ poly(abdomen,2)+poly(forearm,2)+poly(wrist,2)+poly(weight, 2), data=Body_df)
+
+step(square_lm)
+
+square_lm_adpt = lm(bodyfat_brozek~poly(abdomen, 2) + poly(wrist, 2) + poly(weight, 
+    2),data=Body_df)
+
+plot(square_lm_adpt)
+summary(square_lm_adpt)
+```
+
+
+
+
+### Appendix 8 GLM
+
+```{r}
+myglm1 = glm(bodyfat_brozek~., data = bodyfat_temp,family=gaussian)
+stepsearch_glm1 = step(myglm1)
+
+Guassian_opt_glm = glm(formula = bodyfat_brozek ~ age + weight + neck + abdomen + 
+    hip + thigh + forearm + wrist, family = gaussian, data = bodyfat_temp)
+
+plot(Guassian_opt_glm)
+summary(Guassian_opt_glm)
+
+```
 
