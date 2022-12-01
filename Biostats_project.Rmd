@@ -119,6 +119,10 @@ vif(abd_weight_removed)
 
 
 ```{r}
+bodyfat_temp =
+  bodyfat_temp %>% 
+  dplyr::select(-abdomen, -weight)
+
 
 # Set seed for reproducibility
 set.seed(123)
@@ -135,7 +139,7 @@ summary(step.model$finalModel)
 ```
 
 ```{r}
-Selected_lm_model = lm(bodyfat_brozek~weight+abdomen+forearm+wrist, data = bodyfat_temp)
+Selected_lm_model = lm(bodyfat_brozek~age+height+chest+thigh+wrist, data = bodyfat_temp)
 
 plot(Selected_lm_model)
 summary(Selected_lm_model)
@@ -153,7 +157,7 @@ bodyfat_log =
   mutate(log_bodyfat_brozek=log(bodyfat_brozek))
   
   
-boxcox_lm_model = lm(log_bodyfat_brozek~weight+abdomen+forearm+wrist, data = bodyfat_log)
+boxcox_lm_model = lm(log_bodyfat_brozek~age+height+chest+thigh+wrist, data = bodyfat_log)
 
 plot(boxcox_lm_model)
 summary(boxcox_lm_model)
@@ -174,40 +178,67 @@ new_model_all <- lm(((bodyfat_brozek^lambda-1)/lambda) ~ ., data = bodyfat_nonze
 
 stepsearch_coxall=step(new_model_all)
 
-step_cox = lm(formula = ((bodyfat_brozek^lambda - 1)/lambda) ~ age + weight + 
-    neck + abdomen + hip + thigh + forearm + wrist, data = bodyfat_nonzero)
+step_cox = lm(formula = ((bodyfat_brozek^lambda - 1)/lambda) ~ age + height + chest + 
+    hip + thigh + wrist, data = bodyfat_nonzero)
 
 plot(step_cox)
 summary(step_cox)
 AIC(step_cox)
 ```
 
+```{r}
+#lambda = 1 case
+step_cox_1 = lm(formula = ((bodyfat_brozek^1 - 1)/1) ~ age + height + chest + 
+    hip + thigh + wrist, data = bodyfat_nonzero)
+
+plot(step_cox_1)
+summary(step_cox_1)
+AIC(step_cox_1)
+```
+
+
 #### Partial
 
 ```{r}
-mylm = lm(bodyfat_brozek~weight+abdomen+forearm+wrist, data = bodyfat_nonzero)
+
+#chosen from previous model 
+
+mylm = lm(bodyfat_brozek~age+height+chest+thigh+wrist, data = bodyfat_nonzero)
 bc_mod = boxcox(mylm)
 lambda <- bc_mod$x[which.max(bc_mod$y)]
 
-new_model <- lm(((bodyfat_brozek^lambda-1)/lambda) ~ weight+abdomen+forearm+wrist, data = bodyfat_nonzero)
+new_model <- lm(((bodyfat_brozek^lambda-1)/lambda) ~ age+height+chest+thigh+wrist, data = bodyfat_nonzero)
 
 plot(new_model)
 summary(new_model)
 AIC(new_model)
 ```
 
+```{r}
+#lambda = 1 case
+new_model_1 <- lm(((bodyfat_brozek^1-1)/1) ~ age+height+chest+thigh+wrist, data = bodyfat_nonzero)
+
+plot(new_model_1)
+summary(new_model_1)
+AIC(new_model_1)
+```
+
+
+
+
 
 ### Appendix 6 Pairwise
 
 ```{r}
-lm0 = lm(bodyfat_brozek~weight+abdomen+forearm+wrist, data = bodyfat_temp)
+lm0 = lm(bodyfat_brozek~age+height+chest+thigh+wrist, data = bodyfat_temp)
 
 stepsearch = step(lm0,~.^2)
 
 ```
 
 ```{r}
-lm_pairwise = lm(bodyfat_brozek~weight+abdomen+forearm+wrist+weight:abdomen, data = bodyfat_temp)
+lm_pairwise = lm(bodyfat_brozek~age + height + chest + thigh + wrist + thigh:wrist + 
+    age:wrist + height:chest, data = bodyfat_temp)
 
 plot(lm_pairwise)
 summary(lm_pairwise)
@@ -216,15 +247,14 @@ summary(lm_pairwise)
 ### Appendix 7 Square term
 
 ```{r}
-square_lm = lm(bodyfat_brozek ~ poly(abdomen,2)+poly(forearm,2)+poly(wrist,2)+poly(weight, 2), data=Body_df)
+square_lm = lm(bodyfat_brozek ~ poly(age,2)+poly(height,2)+poly(chest,2)+poly(thigh, 2)+poly(wrist,2), data=Body_df)
 
 step(square_lm)
 
-square_lm_adpt = lm(bodyfat_brozek~poly(abdomen, 2) + poly(wrist, 2) + poly(weight, 
-    2),data=Body_df)
+#square_lm_adpt = lm(bodyfat_brozek~poly(abdomen, 2) + poly(wrist, 2) + poly(weight,2),data=Body_df)
 
-plot(square_lm_adpt)
-summary(square_lm_adpt)
+plot(square_lm)
+summary(square_lm)
 ```
 
 
@@ -236,8 +266,8 @@ summary(square_lm_adpt)
 myglm1 = glm(bodyfat_brozek~., data = bodyfat_temp,family=gaussian)
 stepsearch_glm1 = step(myglm1)
 
-Guassian_opt_glm = glm(formula = bodyfat_brozek ~ age + weight + neck + abdomen + 
-    hip + thigh + forearm + wrist, family = gaussian, data = bodyfat_temp)
+Guassian_opt_glm = glm(formula = bodyfat_brozek ~ age + height + neck + chest + hip + thigh + 
+    forearm + wrist, family = gaussian, data = bodyfat_temp)
 
 plot(Guassian_opt_glm)
 summary(Guassian_opt_glm)
