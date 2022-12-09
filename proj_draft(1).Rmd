@@ -1,0 +1,170 @@
+---
+title: "Project"
+output: pdf_document
+date: "2022-11-28"
+---
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(ggcorrplot)
+library(car)
+library(glmnet)
+library(modelr)
+
+```
+
+## Description of data
+
+```{r}
+bd_df <- readxl::read_excel("data/body_density_data.xlsx")
+dim(bd_df)
+bd_df <- bd_df%>%
+  select(bodyfat_brozek, age:wrist)%>%
+  filter(bodyfat_brozek != 0)
+```
+
+We first looked into the content of the dataset. It has 252 observations across 
+17 columns. The outcome we selected is bodyfat_brozek (body fat calculated by 
+brozek), the other key variables are age, height, weight and circumference of 
+body part like neck, chest, abdomen, hip, thigh, knee, ankle, bicep, forearm and wrist.
+
+## plots
+And we use plots to check the distribution of our variables and relationship 
+between our outcome and each of the variables.
+
+```{r}
+lapply(bd_df, hist)
+```
+
+
+```{r}
+par(mfrow = c(2,2))
+lapply(colnames(bd_df)[2:length(colnames(bd_df))], function(nm){
+  ggplot(bd_df) +
+    geom_point(aes_string(y =colnames(bd_df)[1],
+                          nm))
+})
+```
+
+From the plots, it seems that all data are symmetrically distributed. We also saw that there is no obvious relation ship between height and body fat. 
+
+```{r}
+set.seed(1)
+sub<-sample(nrow(bd_df),round(nrow(bd_df)*0.8))
+data_train<-bd_df[sub,]
+data_test<-bd_df[-sub,]
+X.test = as.matrix(data_test[,-1]) 
+Y.test = as.matrix(data_test[,1])
+X.train = as.matrix(data_train[,-1]) 
+Y.train = as.matrix(data_train[,1])
+```
+
+## Use stepwise methods
+```{r}
+full_fit = lm(bodyfat_brozek ~ age + height +weight + neck + chest + abdomen + hip + thigh + knee + ankle + bicep +forearm + wrist, data = data_train)
+Step_model_1 = step(full_fit, direction = "backward", trace = 0)
+summary(Step_model_1)
+vif(Step_model_1)
+plot(Step_model_1)
+RMSE_Step <- rmse(Step_model_1,data = data_test)
+RMSE_Step
+
+
+```
+Although circumference of hip is included in the stepwise model, it is not significant. We then calculated VIF in our stepwise model and found that the VIF of hip is >10. So we doubted that whether it can be included in a model.
+
+```{r}
+model2 <- lm(bodyfat_brozek ~ age  +weight + neck + abdomen  + thigh  +forearm + wrist, data = data_train)
+anova(Step_model_1,model2)
+summary(model2)
+RMSE_2 <- rmse(model2,data = data_test)
+RMSE_2
+```
+
+We performed ANOVA on these two models, p-value is greater than 0.05. The ANOVA test indicates that the model not include hip circumference may be better. This model also has a lower BIC. However, it's AIC is larger than the stepwise model and adj R-squared is also a little bit smaller than the stepwise model. Therefore, we can't decided our final model yet.
+
+```{r}
+mat = as.matrix(data_train)
+leaps::leaps(x = mat[,-1], y = mat[,1], nbest = 1, method = "Cp")
+leaps::leaps(x = mat[,-1], y = mat[,1], nbest = 1, method = "adjr2")
+```
+
+If we choose predictors based on Cp, The Cp is the smallest when the predictors are age, neck,chest, abdomen,hip, thigh, forearm and wrist. If we choose predictors based on adjust R-squared, the predictors are the same.
+
+fitted model based on above Criterion
+```{r}
+model3 <- lm(bodyfat_brozek ~ age +  neck + chest + abdomen + hip + thigh  +forearm + wrist, data = data_train)
+summary(model3)
+RMSE_3 <- rmse(model3,data = data_test)
+RMSE_3
+```
+
+
+
+## LASSO
+We also want to use LASSO to generate a reasonable model. First, we want to 
+choose the best lambda. So we conducted a cross validation. The cross 
+validation's result shows that the best lambda is 0.04,which is small. 
+This indicates that we may include many variables in our model if we using LASSO. 
+So we fit a model with LASSO Regression.  
+```{r}
+set.seed(123)
+lambda_seq <- 10^seq(-3, 0, by = .1)
+cv_object <- cv.glmnet(as.matrix(data_train[,-1]), data_train$bodyfat_brozek, lambda = lambda_seq, 
+nfolds = 5)
+cv_object
+
+tibble(lambda = cv_object$lambda,
+mean_cv_error = cv_object$cvm) %>%
+ggplot(aes(x = lambda, y = 
+mean_cv_error)) +
+geom_point()
+cv_object$lambda.min
+```
+
+```{r}
+fit_bestcv <- glmnet(as.matrix(data_train[,-1]), data_train$bodyfat_brozek, lambda = cv_object$lambda.min)
+best_lambda = cv_object$lambda.min
+coef(fit_bestcv)
+```
+
+```{r}
+lasso_predict_train = predict(fit_bestcv, s = best_lambda, newx = X.train)
+lasso_predict_test = predict(fit_bestcv, s = best_lambda, newx = X.test)
+RMSE_LASSO = sqrt(mean((Y.test-lasso_predict_test)^2))
+SSE_LASSO = sum((Y.train - lasso_predict_train )^2)
+SSTO_LASSO = sum((Y.train - mean(Y.train))^2)
+n = nrow(data_train)
+p = 12
+adj_Rsquared_LASSO_trained = 1 - (SSE_LASSO/SSTO_LASSO)*((n-1)/(n-p-1))
+adj_Rsquared_LASSO_trained
+RMSE_LASSO
+```
+
+
+
+
+
+age and body fat
+https://agsjournals.onlinelibrary.wiley.com/doi/abs/10.1111/j.1532-5415.1993.tb06693.x
+
+```{r}
+bd_df_adpt = 
+  bd_df %>% 
+  mutate(age_level = ifelse(age<40,0,ifelse(age<65,1,2)))
+  
+data_train_adpt<-bd_df_adpt[sub,]
+data_test_adpt<-bd_df_adpt[-sub,]
+
+lm_int = lm(bodyfat_brozek ~ age +  age  +weight + neck + abdomen  + thigh  +forearm + wrist+neck:age_level + chest:age_level + abdomen:age_level + hip:age_level + thigh:age_level  +forearm:age_level + wrist:age_level, data = data_train_adpt)
+
+summary(lm_int)
+
+```
+
+
+
+
+
+

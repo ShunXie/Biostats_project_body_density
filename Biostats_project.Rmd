@@ -258,9 +258,11 @@ summary(square_lm)
 ```
 
 
+### Appendix 8 Lasso 
 
 
-### Appendix 8 GLM
+
+### Appendix 9 GLM
 
 ```{r}
 myglm1 = glm(bodyfat_brozek~., data = bodyfat_temp,family=gaussian)

@@ -39,6 +39,7 @@ barplot(table(read$yr),main="Year group distribution",
    xlab="Year group")
 
 ```
+
 ### Appendix 2
 ```{r}
 Ylin <- read$count
@@ -123,6 +124,7 @@ fitpoisson <- glm(Ylin~read$attention+read$fluency,family = poisson(link="log"))
 plot(fitpoisson) #using glm to plot
 
 ```
+
 ### Appendix 4
 
 ```{r}
