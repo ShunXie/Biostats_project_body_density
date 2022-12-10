@@ -22,6 +22,7 @@ library(dplyr)
 library(MASS)
 library(car)
 library(caret)
+library(glmnet)
 ```
 
 
@@ -259,6 +260,90 @@ summary(square_lm)
 
 
 ### Appendix 8 Lasso 
+
+#### All Var
+```{r}
+set.seed(100)
+#all weight
+bodyfat_temp_all = 
+  Body_df %>% 
+  dplyr::select(-id,-bodyfat_siri,-body_density)
+
+lambda_seq <- 10^seq(-3, 0, by = .1)
+cv_object <- cv.glmnet(as.matrix(bodyfat_temp_all[,-1]), bodyfat_temp_all$bodyfat_brozek, lambda = lambda_seq, 
+nfolds = 5)
+cv_object
+
+tibble(lambda = cv_object$lambda,
+mean_cv_error = cv_object$cvm) %>%
+ggplot(aes(x = lambda, y = 
+mean_cv_error)) +
+geom_point()
+cv_object$lambda.min
+```
+
+
+
+```{r}
+fit_bestcv <- glmnet(as.matrix(bodyfat_temp_all[,-1]), bodyfat_temp_all$bodyfat_brozek, lambda = cv_object$lambda.min)
+best_lambda = cv_object$lambda.min
+coef(fit_bestcv)
+
+set.seed(100)
+# Use 5-fold validation and create the training sets
+train = trainControl(method = "cv", number = 5)
+# Fit the variables model 
+model_caret = train(bodyfat_brozek ~ age + weight+ height + neck + abdomen +hip+thigh+ankle+bicep+forearm+wrist,
+data = bodyfat_temp_all,
+trControl = train,
+method = 'lm',
+na.action = na.pass)
+model_caret
+
+```
+
+
+
+
+### Filtered var
+
+```{r}
+lambda_seq <- 10^seq(-3, 0, by = .1)
+cv_object <- cv.glmnet(as.matrix(bodyfat_temp[,-1]), bodyfat_temp$bodyfat_brozek, lambda = lambda_seq, 
+nfolds = 5)
+cv_object
+
+tibble(lambda = cv_object$lambda,
+mean_cv_error = cv_object$cvm) %>%
+ggplot(aes(x = lambda, y = 
+mean_cv_error)) +
+geom_point()
+cv_object$lambda.min
+```
+
+
+```{r}
+fit_bestcv <- glmnet(as.matrix(bodyfat_temp[,-1]), bodyfat_temp$bodyfat_brozek, lambda = cv_object$lambda.min)
+best_lambda = cv_object$lambda.min
+coef(fit_bestcv)
+```
+
+
+```{r}
+set.seed(100)
+# Use 5-fold validation and create the training sets
+train = trainControl(method = "cv", number = 5)
+# Fit the variables model 
+model_caret = train(bodyfat_brozek ~ age + height + neck + chest+hip+thigh+forearm+wrist,
+data = bodyfat_temp,
+trControl = train,
+method = 'lm',
+na.action = na.pass)
+model_caret
+```
+
+
+
 
 
 

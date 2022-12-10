@@ -165,6 +165,34 @@ summary(lm_int)
 
 
 
+```{r}
+
+lm_int_1 = lm(bodyfat_brozek ~  age  +weight + neck + abdomen  + thigh  +forearm + age_level*weight, data = data_train_adpt)
+summary(lm_int_1)
+
+
+
+
+lm_int_2 = lm(bodyfat_brozek ~  age  +weight + neck + abdomen  + thigh  +forearm + age_level*neck, data = data_train_adpt)
+summary(lm_int_2)
+
+
+
+lm_int_3 = lm(bodyfat_brozek ~  age  +weight + neck + abdomen  + thigh  +forearm + age_level*abdomen, data = data_train_adpt)
+summary(lm_int_3)
+
+
+
+lm_int_4 = lm(bodyfat_brozek ~  age  +weight + neck + abdomen  + thigh  +forearm + age_level*thigh, data = data_train_adpt)
+summary(lm_int_4)
+
+
+
+
+lm_int_5 = lm(bodyfat_brozek ~  age  +weight + neck + abdomen  + thigh  +forearm + age_level*forearm, data = data_train_adpt)
+summary(lm_int_5)
+
+```
 
 
 
